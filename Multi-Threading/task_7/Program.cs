@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -9,37 +6,50 @@ namespace task_7
 {
     class Program
     {
-        static void Main(string[] args)
+        static void Main()
         {
+            //a
+            CreateAndRunTask().ContinueWith((antecedent) =>
+            {
+                Console.WriteLine(Thread.CurrentThread.ManagedThreadId);
+            });
 
-            var task = Task.Run(() =>
+            Console.ReadKey();
+
+            //b
+            CreateAndRunTask().ContinueWith((antecedent) =>
+            {
+                Console.WriteLine(Thread.CurrentThread.ManagedThreadId);
+            }, TaskContinuationOptions.OnlyOnFaulted);
+
+            Console.ReadKey();
+
+            //c
+            CreateAndRunTask().ContinueWith((antecedent) =>
+            {
+                Console.WriteLine(Thread.CurrentThread.ManagedThreadId);
+
+            }, TaskContinuationOptions.ExecuteSynchronously | TaskContinuationOptions.OnlyOnFaulted);
+
+            Console.ReadKey();
+
+            //d
+            CreateAndRunTask().ContinueWith((antecedent) =>
+            {
+                Console.WriteLine(Thread.CurrentThread.ManagedThreadId);
+
+            }, TaskContinuationOptions.OnlyOnCanceled);
+
+            Console.ReadKey();
+        }
+
+        public static Task CreateAndRunTask()
+        {
+            return Task.Run(() =>
             {
                 Console.WriteLine(Thread.CurrentThread.ManagedThreadId);
                 throw null;
             });
-
-            //a
-            //task.ContinueWith((antecedent) => { Console.WriteLine(Thread.CurrentThread.ManagedThreadId); });
-
-            //b
-            //task.ContinueWith((antecedent) =>
-            //{
-            //    Console.WriteLine(Thread.CurrentThread.ManagedThreadId);
-            //}, TaskContinuationOptions.OnlyOnFaulted);
-
-            //c
-            //var task = Task.Run(() =>
-            //{
-            //    Console.WriteLine(Thread.CurrentThread.ManagedThreadId);
-            //    throw null;
-            //});
-            //task.ContinueWith((antecedent) =>
-            //{
-            //    Console.WriteLine(Thread.CurrentThread.ManagedThreadId);
-
-            //}, TaskContinuationOptions.ExecuteSynchronously | TaskContinuationOptions.OnlyOnFaulted);
-
-            Console.ReadKey();
         }
     }
 }

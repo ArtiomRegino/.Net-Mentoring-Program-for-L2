@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace task_5
 {
@@ -15,20 +11,20 @@ namespace task_5
             Console.ReadLine();
         }
 
-        private static Semaphore sph = new Semaphore(1,1);
+        private static Semaphore _sph = new Semaphore(1,1);
 
         public static void CreateTaskRecursive(int number)
         {
             ThreadPool.QueueUserWorkItem(num =>
             {
-                sph.WaitOne();
+                _sph.WaitOne();
                 if (number <= 0) return;
 
                 var intNum = (int)num;
                 intNum = intNum - 1;
                 Console.WriteLine(intNum);
 
-                sph.Release();
+                _sph.Release();
                 CreateTaskRecursive(intNum);
             }, number);
         }
