@@ -23,9 +23,10 @@ namespace task_2
                     {
                         var ints = antecedent.Result;
                         var random = new Random(DateTime.Now.Millisecond);
+                        var randomNumber = random.Next();
 
                         for (var i = 0; i < ints.Length; i++)
-                            ints[i] = random.Next();
+                            ints[i] *= randomNumber;
 
                         return ints;
                     }

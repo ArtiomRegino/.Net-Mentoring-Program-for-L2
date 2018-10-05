@@ -1,36 +1,50 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Threading;
 
 namespace task_6
-{    //6. Write a program which creates two threads and a shared collection: the first one 
-     //   should add 10 elements into the collection and the second should print all elements 
-     //   in the collection after each adding.
-     //   Use Thread, ThreadPool or Task classes for thread creation and any kind of synchronization constructions.
+{
     class Program
-    {//?????? после доб 10 эл-ов печатать? или после каждого элемента?
+    {
+        static EventWaitHandle _waitHandle1 = new EventWaitHandle(false, EventResetMode.AutoReset);
+        static EventWaitHandle _waitHandle2 = new EventWaitHandle(false, EventResetMode.AutoReset);
+
         static void Main()
         {
-            List<int> collection = new List<int>();
+            var collection = new List<int>();
 
-
-        }
-
-        public static void Print(IEnumerable<int> collection)
-        {
-            Console.WriteLine(Environment.NewLine);
-
-            foreach (var item in collection)
+            var addToCollectionThread = new Thread(number =>
             {
-                Console.WriteLine(item);
-            }
-        }
+                for (int i = 0; i < (int)number; i++)
+                {
+                     collection.Add(i);
 
-        public static void AddToCollection(int element, List<int> collection)
-        {
-            collection.Add(element);
+                    _waitHandle1.Set();
+                    _waitHandle2.WaitOne();
+                }
+            });
+
+            var printCollectionThread = new Thread(number =>
+            {
+                int i = (int)number;
+                while (i > 0)
+                {
+                    _waitHandle1.WaitOne();
+                    
+                    foreach (var item in collection)
+                    {
+                        Console.Write($"{item} ");
+                    }
+                    
+                    Console.WriteLine(Environment.NewLine);
+                    _waitHandle2.Set();
+                    i--;
+                }
+            });
+
+            addToCollectionThread.Start(10);
+            printCollectionThread.Start(10);
+
         }
     }
 }
