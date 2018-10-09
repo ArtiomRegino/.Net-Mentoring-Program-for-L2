@@ -5,8 +5,13 @@ using System.Threading.Tasks;
 namespace task_2._1
 {
     class Program
-    { 
+    {  
         static void Main()
+        {
+            Run().Wait();
+        }
+
+        public static async Task Run()
         {
             int number;
             CancellationTokenSource source = null;
@@ -22,12 +27,11 @@ namespace task_2._1
                 }
                 source = new CancellationTokenSource();
                 token = source.Token;
-
-                Calculate(number, token);
+                Task.Run(async () => await Calculate(number, token));
             }
         }
 
-        public static async void Calculate(int number, CancellationToken token)
+        public static async Task Calculate(int number, CancellationToken token)
         {
             Console.WriteLine("Wait for calculation or change the N: ");
             try
@@ -46,22 +50,19 @@ namespace task_2._1
             }
         }
 
-        public static Task<int> SumAsync(int number, CancellationToken token)
+        public static async Task<int> SumAsync(int number, CancellationToken token)
         {
-            return Task.Run(() =>
+            await Task.Delay(1000);
+
+            int sum = 0;
+
+            for (int i = 0; i < number; i++)
             {
-                Thread.Sleep(1000);
-                int sum = 0;
+                sum += i;
+            }
+            token.ThrowIfCancellationRequested();
 
-                for (int i = 0; i < number; i++)
-                {
-                    sum += i;
-                }
-                token.ThrowIfCancellationRequested();
-
-                return sum;
-            }, token);
+            return sum;
         }
-
     }
 }
