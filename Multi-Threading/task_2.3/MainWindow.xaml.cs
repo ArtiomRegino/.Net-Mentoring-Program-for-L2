@@ -71,7 +71,7 @@ namespace task_2._3
             });
         }
 
-        private async Task RemoveFromCartButton_Click(object sender, RoutedEventArgs e)
+        private async void RemoveFromCartButton_Click(object sender, RoutedEventArgs e)
         {
             await RemoveFromCartAsync(CartListView.SelectedItems);
         }
