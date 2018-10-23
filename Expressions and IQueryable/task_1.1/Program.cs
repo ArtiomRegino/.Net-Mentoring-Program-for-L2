@@ -28,8 +28,8 @@ namespace task_1
 
             var args = new Dictionary<string, ConstantExpression>
             {
-                ["x"] = Expression.Constant(4),
-                ["y"] = Expression.Constant(1),
+                ["x"] = Expression.Constant(4, typeof(int)),
+                ["y"] = Expression.Constant(1, typeof(int)),
             };
 
             var visitor = new ParameterToConstantTransform(args);
