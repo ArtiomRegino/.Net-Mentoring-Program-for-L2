@@ -1,24 +1,19 @@
-﻿using System.Linq;
+﻿using System;
 
 namespace task_2
 {
-    public class Mapper
+    public class Mapper<TSource, TDestination>
     {
-        public TDestination Change<TSource, TDestination>(TSource source) where TDestination : new()
+        readonly Func<TSource, TDestination> _mapFunction;
+
+        internal Mapper(Func<TSource, TDestination> func)
         {
-            var destination = new TDestination();
-            var propsDest = destination.GetType().GetProperties();
-            var propsSource = source.GetType().GetProperties();
+            _mapFunction = func;
+        }
 
-            foreach (var propSource in propsSource)
-            {
-                var propDest = propsDest.FirstOrDefault(p => p.Name == propSource.Name && p.PropertyType == propSource.PropertyType);
-                var a = propSource.GetValue(source);
-
-                if (propDest != null) propDest.SetValue(destination, a);
-            }
-
-            return destination;
+        public TDestination Map(TSource source)
+        {
+            return _mapFunction(source);
         }
     }
 }

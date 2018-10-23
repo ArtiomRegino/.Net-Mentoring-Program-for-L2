@@ -1,10 +1,15 @@
 ﻿namespace task_2
 {
-    internal class Program
+    class Program
     {
-        private static void Main()
+        static void Main()
         {
-            TestMethod();
+            var mapGenerator = new MappingGenerator();
+            var foo = new Foo { A = 5, B = "Alla", C = 64 };
+
+            var mapper = mapGenerator.Generate<Foo, Bar>();
+
+            var res = mapper.Map(foo);
         }
 
         public class Foo
@@ -18,14 +23,6 @@
         {
             public int A { get; set; }
             public string B { get; set; }
-        }
-
-        public static void TestMethod()
-        {
-            var map = new Mapper();
-            var foo = new Foo { A = 5, B = "Alla", C = 64 };
-
-            var result = map.Change<Foo, Bar>(foo);
         }
     }
 }

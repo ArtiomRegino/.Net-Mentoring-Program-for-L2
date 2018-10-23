@@ -1,0 +1,16 @@
+﻿1. Создается объект генератора.
+2. Вызывается типизированный метод mapGenerator.Generate<TSource, TDestination>(),
+   который возвращает объект мапера с типизированным делегатом в качестве свойства.
+3. При генерации вызывается Expression.MemberInit(тип объекта, IEnumerable<MemberBinding>),
+   который создает объект и инициализирует его свойства перечисленные в коллекции(2 аргумент).
+4. В качестве второго аргумента стоит лямбда, которая получает на вход свойства sourse типа,
+   и определяет есть ли в destination типе свойства с такими же именами.
+5. При условии нахождения аналогичного свойства лямбдой возвращается
+   объект из метода Expression.Bind(typeof(TDestination).GetProperty(p.Name), Expression.Property(sourceParam, p)),
+   описывающий какому свойству PropertyInfo надо присвоить какое значение значение, где 
+   Expression.Property(sourceParam, p) возвращает значение свойства p объекта sourceParam,
+   а typeof(TDestination).GetProperty(p.Name) возвращает PropertyInfo свойства из source типа.
+6. Таким образом набивается IEnumerable<MemberBinding>;
+7. Expression.Lambda<Func<TSource, TDestination>> (mapFunction, sourceParam) создается LambdaExpression с телом mapFunction и параметром sourceParam.
+   LambdaExpression компилируется и сохраняется в объекте mapper возвращаемом mapGenerator.Generate<TSource, TDestination>().
+8. При вызове метода Map(sourceParam) sourceParam передается в скомпилированную лямбду и используется внутри выражения сконструированного выражения.
