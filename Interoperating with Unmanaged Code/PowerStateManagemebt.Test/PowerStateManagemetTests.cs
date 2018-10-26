@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using PowerStateManagemebt.Test;
+using static PowerStateManagemet.NativePowerStateManagemetInterop;
 
 namespace PowerStateManagemet.Test
 {
@@ -18,7 +19,7 @@ namespace PowerStateManagemet.Test
         {
             IntPtr lastSleep = AllocateMemory(typeof(ulong));
             
-            var status = PowerStateManagemet.CallNtPowerInformation((int)InformationLevel.LastSleepTime,
+            var status = CallNtPowerInformation((int)InformationLevel.LastSleepTime,
                                                     IntPtr.Zero, 0, lastSleep, Marshal.SizeOf(typeof(ulong)));
 
             var battStatus = (ulong)Marshal.ReadInt64(lastSleep, 0);
@@ -33,7 +34,7 @@ namespace PowerStateManagemet.Test
         {
             IntPtr lastWakeTime = AllocateMemory(typeof(ulong));
 
-            var status = PowerStateManagemet.CallNtPowerInformation((int)InformationLevel.LastWakeTime,
+            var status = CallNtPowerInformation((int)InformationLevel.LastWakeTime,
                 IntPtr.Zero, 0, lastWakeTime, Marshal.SizeOf(typeof(ulong)));
 
             var battStatus = (ulong)Marshal.ReadInt64(lastWakeTime, 0);
@@ -48,7 +49,7 @@ namespace PowerStateManagemet.Test
         {
             IntPtr sbs = AllocateMemory(typeof(SYSTEM_BATTERY_STATE));
 
-            var status = PowerStateManagemet.CallNtPowerInformation((int)InformationLevel.SystemBatteryState,
+            var status = CallNtPowerInformation((int)InformationLevel.SystemBatteryState,
                                         IntPtr.Zero, 0, sbs, Marshal.SizeOf(typeof(SYSTEM_BATTERY_STATE)));
 
             var battStatus = (SYSTEM_BATTERY_STATE)Marshal.PtrToStructure(sbs, typeof(SYSTEM_BATTERY_STATE));
@@ -63,7 +64,7 @@ namespace PowerStateManagemet.Test
         {
             IntPtr powerInfo = AllocateMemory(typeof(SYSTEM_POWER_INFORMATION));
 
-            var status = PowerStateManagemet.CallNtPowerInformation((int)InformationLevel.SystemPowerInformation,
+            var status = CallNtPowerInformation((int)InformationLevel.SystemPowerInformation,
                                             IntPtr.Zero, 0, powerInfo, Marshal.SizeOf(typeof(SYSTEM_POWER_INFORMATION)));
 
             var info = (SYSTEM_POWER_INFORMATION)Marshal.PtrToStructure(powerInfo, typeof(SYSTEM_POWER_INFORMATION));
@@ -79,7 +80,7 @@ namespace PowerStateManagemet.Test
             IntPtr infoHyb = AllocateMemory(typeof(bool));
             Marshal.WriteByte(infoHyb, Convert.ToByte(false));
 
-            var status = PowerStateManagemet.CallNtPowerInformation((int)InformationLevel.SystemReserveHiberFile,
+            var status = CallNtPowerInformation((int)InformationLevel.SystemReserveHiberFile,
                 infoHyb, Marshal.SizeOf(infoHyb), IntPtr.Zero, 0);
 
             Marshal.FreeCoTaskMem(infoHyb);
@@ -94,7 +95,7 @@ namespace PowerStateManagemet.Test
             bool bForce = true;
             bool bWakeupEventsDisabled = false;
 
-            var status = PowerStateManagemet.SetSuspendState(bHibernate, bForce, bWakeupEventsDisabled);
+            var status = SetSuspendState(bHibernate, bForce, bWakeupEventsDisabled);
 
             Console.WriteLine(status);
             Assert.IsTrue(status);

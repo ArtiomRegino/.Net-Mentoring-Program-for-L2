@@ -3,22 +3,21 @@ using System.Runtime.InteropServices;
 
 namespace PowerStateManagemet
 {
-    public static class PowerStateManagemet
+    [ComVisible(true)]
+    [Guid("EC375605-EA60-48C5-B3DD-43468195340F")]
+    [ClassInterface(ClassInterfaceType.None)]
+    class PowerStateManagemet: IPowerStateManagement
     {
-        [DllImport("powrprof.dll", SetLastError = true)]
-        public static extern UInt32 CallNtPowerInformation(
-            int InformationLevel,
-            IntPtr lpInputBuffer,
-            int nInputBufferSize,
-            IntPtr lpOutputBuffer,
-            int nOutputBufferSize
-        );
+        public uint CallNtPowerInformation(int informationLevel, IntPtr lpInputBuffer, int nInputBufferSize, IntPtr lpOutputBuffer,
+            int nOutputBufferSize)
+        {
+            return NativePowerStateManagemetInterop.CallNtPowerInformation(informationLevel, lpInputBuffer,
+                nInputBufferSize, lpOutputBuffer, nOutputBufferSize);
+        }
 
-        [DllImport("powrprof.dll", SetLastError = true)]
-        public static extern bool SetSuspendState(
-            bool bHibernate,
-            bool bForce,
-            bool bWakeupEventsDisabled
-        );
+        public bool SetSuspendState(bool bHibernate, bool bWakeupEventsDisabled)
+        {
+            return NativePowerStateManagemetInterop.SetSuspendState(bHibernate, false, bWakeupEventsDisabled);
+        }
     }
 }
