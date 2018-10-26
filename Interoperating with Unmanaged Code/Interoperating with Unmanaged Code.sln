@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27428.2043
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PowerStateManagemet.Test", "PowerStateManagemebt.Test\PowerStateManagemet.Test.csproj", "{0B23342F-CAE7-4B44-B645-2F35BC9E97B4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PowerStateManagemet", "PowerStateManagemet\PowerStateManagemet.csproj", "{70E2F997-9283-40BD-8752-FFFA48A10CDF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0B23342F-CAE7-4B44-B645-2F35BC9E97B4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0B23342F-CAE7-4B44-B645-2F35BC9E97B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0B23342F-CAE7-4B44-B645-2F35BC9E97B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0B23342F-CAE7-4B44-B645-2F35BC9E97B4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{70E2F997-9283-40BD-8752-FFFA48A10CDF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{70E2F997-9283-40BD-8752-FFFA48A10CDF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{70E2F997-9283-40BD-8752-FFFA48A10CDF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{70E2F997-9283-40BD-8752-FFFA48A10CDF}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {1DBE00BA-B933-4E91-B280-9E230BED9187}
+	EndGlobalSection
+EndGlobal
