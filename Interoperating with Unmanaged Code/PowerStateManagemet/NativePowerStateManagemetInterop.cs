@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace PowerStateManagemet
 {
-    public static class NativePowerStateManagemetInterop
+    internal static class NativePowerStateManagemetInterop
     {
         [DllImport("powrprof.dll", SetLastError = true)]
         public static extern UInt32 CallNtPowerInformation(
