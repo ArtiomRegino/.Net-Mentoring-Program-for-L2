@@ -13,11 +13,24 @@ namespace ScanProcessingService
         static void Main()
         {
             string folder = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
-            string inDir = Path.Combine(folder, "in");
-            string outDir = Path.Combine(folder, "out");
+            LogFactory logFactory = ConfigureLofFactory(folder);
 
+            HostFactory.Run(
+                conf => conf.Service<ScanProcessingService>(
+                    service =>
+                    {
+                        service.ConstructUsing(() => new ScanProcessingService());
+                        service.WhenStarted(serv => serv.Start());
+                        service.WhenStopped(serv => serv.Stop());
+                    }
+                 ).UseNLog(logFactory)
+            );
+        }
+
+        private static LogFactory ConfigureLofFactory(string folder)
+        {
             var logConf = new LoggingConfiguration();
-            var fileTarget = new FileTarget()
+            var fileTarget = new FileTarget
             {
                 FileName = Path.Combine(folder, "log.txt"),
                 CreateDirs = true,
@@ -27,18 +40,7 @@ namespace ScanProcessingService
             logConf.AddTarget(fileTarget);
             logConf.AddRuleForAllLevels(fileTarget);
 
-            var logFactory = new LogFactory(logConf);
-
-            HostFactory.Run(
-                conf => conf.Service<ScanProcessingService>(
-                    service =>
-                    {
-                        service.ConstructUsing(() => new ScanProcessingService(inDir, outDir));
-                        service.WhenStarted(serv => serv.Start());
-                        service.WhenStopped(serv => serv.Stop());
-                    }
-                 ).UseNLog(logFactory)
-            );
+            return new LogFactory(logConf);
         }
     }
 }
