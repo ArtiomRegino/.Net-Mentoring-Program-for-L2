@@ -16,9 +16,9 @@ namespace ScanProcessingService
     {
         private FileSystemWatcher _watcher;
         private Thread _workThread;
-        private ManualResetEvent _resetEvent;
+        private ManualResetEvent _startWorkEvent;
         private AutoResetEvent _stopEvent;
-        private Document document;
+        private Document _document;
         private Regex _imageNamePattern;
         private Regex _pdfNamePattern;
         private Regex _pdfNameReplacePattern;
@@ -37,9 +37,9 @@ namespace ScanProcessingService
             _workThread = new Thread(WorkProcedure);
             _watcher = new FileSystemWatcher(_fileMonitorDirectory);
             _watcher.Created += WatcherOnCreated;
-            _resetEvent = new ManualResetEvent(false);
+            _startWorkEvent = new ManualResetEvent(false);
             _stopEvent = new AutoResetEvent(false);
-            document = new Document();
+            _document = new Document();
         }
 
         private void CreateDerictories(params string[] directories)
@@ -53,34 +53,25 @@ namespace ScanProcessingService
 
         private void WorkProcedure(object obj)
         {
-            var section = document.AddSection();
+            var section = _document.AddSection();
             
             do
             {
                 foreach (var filePath in Directory.EnumerateFiles(_fileMonitorDirectory))
                 {
-                    if (_resetEvent.WaitOne(TimeSpan.Zero))
+                    if (_startWorkEvent.WaitOne(TimeSpan.Zero))
                         return;
 
-                    if (!ValidateImageName(filePath) || !TryOpen(filePath, 3))
+                    if (!ValidateFileName(filePath, _imageNamePattern) || !TryOpen(filePath, 3))
                         continue;
 
-                    Image img = GetImageIfValid(filePath);
-
-                    if (img == null)
+                    if (!RotateImageIfValid(filePath))
                     {
-                        ExportCorruptedSequence();
+                        ExportCorruptedSequence(section, filePath);
                         continue;
                     }
 
                     var image = section.AddImage(filePath);
-
-                    if (img.Height < img.Width)
-                    {
-                        img.RotateFlip(RotateFlipType.Rotate270FlipNone);
-                        img.Save(filePath);
-                    }
-
                     ConfigureImage(image);
                     section.AddPageBreak(); 
                         
@@ -89,12 +80,24 @@ namespace ScanProcessingService
                 }
                 RenderDocument();
 
-            } while (WaitHandle.WaitAny(new WaitHandle[] {_stopEvent, _resetEvent}, 1000) != 0);
+            } while (WaitHandle.WaitAny(new WaitHandle[] {_stopEvent, _startWorkEvent}, 1000) != 0);
         }
 
-        private void ExportCorruptedSequence()
+        private void ExportCorruptedSequence(Section section, string corruptedFilePath)
         {
-            throw new NotImplementedException();
+            string fileName = Path.GetFileName(corruptedFilePath);
+            File.Move(corruptedFilePath, Path.Combine(_fileCorruptedDirectory, fileName));
+            foreach (var item in section.Elements)
+            {
+                var image = item as MigraDoc.DocumentObjectModel.Shapes.Image;
+                if (image != null)
+                {
+                    var filePath = image.GetFilePath(_fileMonitorDirectory);
+                    fileName = Path.GetFileName(filePath);
+                    File.Move(filePath, Path.Combine(_fileCorruptedDirectory, fileName));
+                }
+            }
+            _document = new Document();
         }
 
         private void ValidateOutputFolder()
@@ -104,10 +107,13 @@ namespace ScanProcessingService
             foreach (var filePath in existingPdfFiles)
             {
                 var fileName = Path.GetFileName(filePath);
-                var fileNumber = numberPuttern.Match(fileName);
-                int num;
-                if (int.TryParse(fileNumber.Value, out num) && _pdfFileNumber < num)
-                    _pdfFileNumber = num;
+                if (ValidateFileName(filePath, _pdfNamePattern))
+                {
+                    var fileNumber = numberPuttern.Match(fileName);
+                    int num;
+                    if (int.TryParse(fileNumber.Value, out num) && _pdfFileNumber < num)
+                        _pdfFileNumber = num;
+                }
             }
         }
 
@@ -121,20 +127,27 @@ namespace ScanProcessingService
         /// <summary>
         /// Gets valid image.
         /// </summary>
-        /// <param name="filename">Path to image.</param>
-        /// <returns>Returns null if the file does not have a valid image format.</returns>
-        Image GetImageIfValid(string filename)
+        /// <param name="filePath">Path to image.</param>
+        /// <returns>Returns false if the file does not have a valid image format.</returns>
+        bool RotateImageIfValid(string filePath)
         {
-            Image newImage;
+            Image image;
             try
             {
-                newImage = Image.FromFile(filename);
+                using (image = Image.FromFile(filePath))
+                {
+                    if (image.Height < image.Width)
+                    {
+                        image.RotateFlip(RotateFlipType.Rotate270FlipNone);
+                        image.Save(filePath);
+                    }
+                }
             }
             catch (OutOfMemoryException ex)
             {
-                return null;
+                return false;
             }
-            return newImage;
+            return true;
         }
 
         public void SetServiceConfiguration()
@@ -156,25 +169,25 @@ namespace ScanProcessingService
             _fileCorruptedDirectory = corruptedDirectory == "" ?  Path.Combine(moduleFolder, "corrupted") : corruptedDirectory;
         }
 
-        public bool ValidateImageName(string imagePath)
+        public bool ValidateFileName(string filePath, Regex filePattern)
         {
-            string imageName = Path.GetFileName(imagePath);
-            return _imageNamePattern.IsMatch(imageName);
+            string fileName = Path.GetFileName(filePath);
+            return filePattern.IsMatch(fileName);
         }
 
         private void ConfigureImage(MigraDoc.DocumentObjectModel.Shapes.Image image)
         {
-            image.Height = document.DefaultPageSetup.PageHeight;
+            image.Height = _document.DefaultPageSetup.PageHeight;
             image.RelativeVertical = RelativeVertical.Page;
             image.RelativeHorizontal = RelativeHorizontal.Page;
-            image.Width = document.DefaultPageSetup.PageWidth;
+            image.Width = _document.DefaultPageSetup.PageWidth;
         }
 
         private void RenderDocument()
         {
             var render = new PdfDocumentRenderer
             {
-                Document = document
+                Document = _document
             };
             render.RenderDocument();
             render.Save(Path.Combine(_fileOutputDirectory, GetPdfName()));
@@ -188,14 +201,14 @@ namespace ScanProcessingService
         public void Start()
         {
             _workThread.Start();
-            //watcher.EnableRaisingEvents = true;
+            _watcher.EnableRaisingEvents = true;
         }
 
         public void Stop()
         {
-            _resetEvent.Set();
+            _watcher.EnableRaisingEvents = false;
+            _startWorkEvent.Set();
             _workThread.Join();
-            //watcher.EnableRaisingEvents = false;
         }
 
         public bool TryOpen(string path, int tryCount)
