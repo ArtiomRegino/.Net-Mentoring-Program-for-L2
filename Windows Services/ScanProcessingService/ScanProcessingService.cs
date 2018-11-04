@@ -21,6 +21,7 @@ namespace ScanProcessingService
         private Document document;
         private Regex _imageNamePattern;
         private Regex _pdfNamePattern;
+        private Regex _pdfNameReplacePattern;
         private string _fileMonitorDirectory;
         private string _fileOutputDirectory;
         private string _fileCorruptedDirectory;
@@ -29,8 +30,8 @@ namespace ScanProcessingService
 
         public ScanProcessingService()
         {
-            CreateDerictories(_fileMonitorDirectory, _fileOutputDirectory, _fileCorruptedDirectory);
             SetServiceConfiguration();
+            CreateDerictories(_fileMonitorDirectory, _fileOutputDirectory, _fileCorruptedDirectory);
             ValidateOutputFolder();
 
             _workThread = new Thread(WorkProcedure);
@@ -96,13 +97,17 @@ namespace ScanProcessingService
             throw new NotImplementedException();
         }
 
-        //TODO: !
         private void ValidateOutputFolder()
         {
+            Regex numberPuttern = new Regex(@"\d+");
             var existingPdfFiles = Directory.EnumerateFiles(_fileOutputDirectory);
             foreach (var filePath in existingPdfFiles)
             {
-                Path.GetFileName(filePath);
+                var fileName = Path.GetFileName(filePath);
+                var fileNumber = numberPuttern.Match(fileName);
+                int num;
+                if (int.TryParse(fileNumber.Value, out num) && _pdfFileNumber < num)
+                    _pdfFileNumber = num;
             }
         }
 
@@ -110,7 +115,7 @@ namespace ScanProcessingService
         {
             _pdfFileNumber++;
             string target = _pdfFileNumber.ToString();
-            return _pdfNamePattern.Replace(_pdfNameTemplate, target);
+            return _pdfNameReplacePattern.Replace(_pdfNameTemplate, target);
         }
 
         /// <summary>
@@ -136,17 +141,19 @@ namespace ScanProcessingService
         {
             string imageNamePattern = ConfigurationManager.AppSettings["ImageNamePattern"];
             string pdfNamePattern = ConfigurationManager.AppSettings["PdfNamePattern"];
+            string pdfNameReplacePattern = ConfigurationManager.AppSettings["PdfNameReplacePattern"];
             _pdfNameTemplate = ConfigurationManager.AppSettings["PdfNameTemplate"];
             _imageNamePattern = new Regex(imageNamePattern, RegexOptions.CultureInvariant);
             _pdfNamePattern = new Regex(pdfNamePattern, RegexOptions.CultureInvariant);
+            _pdfNameReplacePattern = new Regex(pdfNameReplacePattern, RegexOptions.CultureInvariant);
 
             string moduleFolder = Path.GetDirectoryName(Process.GetCurrentProcess().MainModule.FileName);
             string inputDirectory = ConfigurationManager.AppSettings["DirectoryMonitorPath"];
             string outputDirectory = ConfigurationManager.AppSettings["DirectoryOutputPath"];
             string corruptedDirectory = ConfigurationManager.AppSettings["DirectoryCorruptedSequencePath"];
-            _fileMonitorDirectory = inputDirectory == "" ? inputDirectory : Path.Combine(moduleFolder, "input");
-            _fileOutputDirectory = outputDirectory == "" ? outputDirectory : Path.Combine(moduleFolder, "output");
-            _fileCorruptedDirectory = corruptedDirectory == "" ? corruptedDirectory : Path.Combine(moduleFolder, "output");
+            _fileMonitorDirectory = inputDirectory == "" ? Path.Combine(moduleFolder, "input"): inputDirectory;
+            _fileOutputDirectory = outputDirectory == "" ? Path.Combine(moduleFolder, "output"): outputDirectory;
+            _fileCorruptedDirectory = corruptedDirectory == "" ?  Path.Combine(moduleFolder, "corrupted") : corruptedDirectory;
         }
 
         public bool ValidateImageName(string imagePath)
