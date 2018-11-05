@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using MigraDoc.DocumentObjectModel;
@@ -59,12 +60,16 @@ namespace ScanProcessingService
             do
             {
                 var section = _document.AddSection();
-                foreach (var filePath in Directory.EnumerateFiles(_fileMonitorDirectory))
+                var filePaths = Directory.EnumerateFiles(_fileMonitorDirectory);
+                filePaths = filePaths.Where(p => ValidateFileName(p, _imageNamePattern));
+                filePaths = SortPaths(filePaths);
+
+                foreach (var filePath in filePaths)
                 {
                     if (_startWorkEvent.WaitOne(TimeSpan.Zero))
                         return;
 
-                    if (!ValidateFileName(filePath, _imageNamePattern) || !TryOpen(filePath, 3))
+                    if (!TryOpen(filePath, 3))
                         continue;
 
                     if (!RotateImageIfValid(filePath))
@@ -77,13 +82,29 @@ namespace ScanProcessingService
                     ConfigureImage(image);
                     section.AddPageBreak(); 
                 }
-                if (_pdfFileEnd)
-                {
+                //if (_pdfFileEnd)
+                //{
                     RenderDocument();
-                    DeleteManagedSequence(section);
+                    //DeleteManagedSequence(section);
                     _pdfFileEnd = false;
-                }
+                //}
             } while (WaitHandle.WaitAny(new WaitHandle[] {_stopEvent, _startWorkEvent}, 1000) != 0);
+        }
+
+        private IEnumerable<string> SortPaths(IEnumerable<string> paths)
+        {
+            Regex pattern = new Regex(@"\d+");
+            var orderedPaths = paths.OrderBy(s => GetImageNumber(s, pattern));
+
+            return orderedPaths;
+        }
+
+        private string GetImageNumber(string filePath, Regex pattern)
+        {
+            var matches = pattern.Matches(filePath);
+            var lastMatch = matches[matches.Count - 1];
+
+            return lastMatch.Value;
         }
 
         private void ExportCorruptedSequence(Section section, string corruptedFilePath)
