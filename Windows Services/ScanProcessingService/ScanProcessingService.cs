@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Configuration;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using MigraDoc.DocumentObjectModel;
@@ -27,6 +29,7 @@ namespace ScanProcessingService
         private string _fileCorruptedDirectory;
         private string _pdfNameTemplate;
         private int _pdfFileNumber;
+        private bool _pdfFileEnd;
 
         public ScanProcessingService()
         {
@@ -53,10 +56,9 @@ namespace ScanProcessingService
 
         private void WorkProcedure(object obj)
         {
-            var section = _document.AddSection();
-            
             do
             {
+                var section = _document.AddSection();
                 foreach (var filePath in Directory.EnumerateFiles(_fileMonitorDirectory))
                 {
                     if (_startWorkEvent.WaitOne(TimeSpan.Zero))
@@ -74,12 +76,13 @@ namespace ScanProcessingService
                     var image = section.AddImage(filePath);
                     ConfigureImage(image);
                     section.AddPageBreak(); 
-                        
-                    //var outFile = Path.GetFileName(filePath);
-                    //File.Move(filePath, Path.Combine(_outDir, outFile));
                 }
-                RenderDocument();
-
+                if (_pdfFileEnd)
+                {
+                    RenderDocument();
+                    DeleteManagedSequence(section);
+                    _pdfFileEnd = false;
+                }
             } while (WaitHandle.WaitAny(new WaitHandle[] {_stopEvent, _startWorkEvent}, 1000) != 0);
         }
 
@@ -87,17 +90,29 @@ namespace ScanProcessingService
         {
             string fileName = Path.GetFileName(corruptedFilePath);
             File.Move(corruptedFilePath, Path.Combine(_fileCorruptedDirectory, fileName));
-            foreach (var item in section.Elements)
+            var imagePaths = GetImagePathsFromFile(section);
+            foreach (var filePath in imagePaths)
             {
-                var image = item as MigraDoc.DocumentObjectModel.Shapes.Image;
-                if (image != null)
-                {
-                    var filePath = image.GetFilePath(_fileMonitorDirectory);
-                    fileName = Path.GetFileName(filePath);
-                    File.Move(filePath, Path.Combine(_fileCorruptedDirectory, fileName));
-                }
+                fileName = Path.GetFileName(filePath);
+                File.Move(filePath, Path.Combine(_fileCorruptedDirectory, fileName));
             }
             _document = new Document();
+        }
+
+        private void DeleteManagedSequence(Section section)
+        {
+            var imagePaths = GetImagePathsFromFile(section);
+            foreach (var filePath in imagePaths)
+            {
+                File.Delete(filePath);
+            }
+            _document = new Document();
+        }
+
+        public IEnumerable<string> GetImagePathsFromFile(Section section)
+        {
+            return section.Elements.OfType<MigraDoc.DocumentObjectModel.Shapes.Image>().Select(
+                image => image.GetFilePath(_fileMonitorDirectory)).ToList();
         }
 
         private void ValidateOutputFolder()
@@ -117,7 +132,7 @@ namespace ScanProcessingService
             }
         }
 
-        public string GetPdfName()
+        private string GetPdfName()
         {
             _pdfFileNumber++;
             string target = _pdfFileNumber.ToString();
@@ -125,11 +140,11 @@ namespace ScanProcessingService
         }
 
         /// <summary>
-        /// Gets valid image.
+        /// Rotates image it has correct format.
         /// </summary>
         /// <param name="filePath">Path to image.</param>
         /// <returns>Returns false if the file does not have a valid image format.</returns>
-        bool RotateImageIfValid(string filePath)
+        private bool RotateImageIfValid(string filePath)
         {
             Image image;
             try
@@ -150,7 +165,7 @@ namespace ScanProcessingService
             return true;
         }
 
-        public void SetServiceConfiguration()
+        private void SetServiceConfiguration()
         {
             string imageNamePattern = ConfigurationManager.AppSettings["ImageNamePattern"];
             string pdfNamePattern = ConfigurationManager.AppSettings["PdfNamePattern"];
@@ -169,7 +184,7 @@ namespace ScanProcessingService
             _fileCorruptedDirectory = corruptedDirectory == "" ?  Path.Combine(moduleFolder, "corrupted") : corruptedDirectory;
         }
 
-        public bool ValidateFileName(string filePath, Regex filePattern)
+        private bool ValidateFileName(string filePath, Regex filePattern)
         {
             string fileName = Path.GetFileName(filePath);
             return filePattern.IsMatch(fileName);
@@ -211,7 +226,7 @@ namespace ScanProcessingService
             _workThread.Join();
         }
 
-        public bool TryOpen(string path, int tryCount)
+        private bool TryOpen(string path, int tryCount)
         {
             for (int i = 0; i < tryCount; i++)
             {
