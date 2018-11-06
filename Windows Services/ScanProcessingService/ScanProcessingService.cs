@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using MigraDoc.DocumentObjectModel;
@@ -19,31 +18,33 @@ namespace ScanProcessingService
     {
         private FileSystemWatcher _watcher;
         private Thread _workThread;
-        private ManualResetEvent _startWorkEvent;
-        private AutoResetEvent _stopEvent;
+        private AutoResetEvent _startWorkEvent;
+        private ManualResetEvent _stopEvent;
         private Document _document;
         private Regex _imageNamePattern;
         private Regex _pdfNamePattern;
         private Regex _pdfNameReplacePattern;
+        private Regex _imageNumberPattern;
         private string _fileMonitorDirectory;
         private string _fileOutputDirectory;
         private string _fileCorruptedDirectory;
         private string _pdfNameTemplate;
         private int _pdfFileNumber;
-        private bool _pdfFileEnd;
 
         public ScanProcessingService()
         {
             SetServiceConfiguration();
             CreateDerictories(_fileMonitorDirectory, _fileOutputDirectory, _fileCorruptedDirectory);
-            ValidateOutputFolder();
 
+            _imageNumberPattern = new Regex(@"\d+");
+            _startWorkEvent = new AutoResetEvent(false);
+            _stopEvent = new ManualResetEvent(false);
+
+            ValidateOutputFolder();
+            _document = new Document();
             _workThread = new Thread(WorkProcedure);
             _watcher = new FileSystemWatcher(_fileMonitorDirectory);
             _watcher.Created += WatcherOnCreated;
-            _startWorkEvent = new ManualResetEvent(false);
-            _stopEvent = new AutoResetEvent(false);
-            _document = new Document();
         }
 
         private void CreateDerictories(params string[] directories)
@@ -57,51 +58,71 @@ namespace ScanProcessingService
 
         private void WorkProcedure(object obj)
         {
+            var addedPaths = new List<string>();
+            var firstFilePath = GetSortedPaths().FirstOrDefault();
+            int prevImgNumber = int.Parse(GetImageNumber(firstFilePath));
+            var section = _document.AddSection();
+
             do
             {
-                var section = _document.AddSection();
-                var filePaths = Directory.EnumerateFiles(_fileMonitorDirectory);
-                filePaths = filePaths.Where(p => ValidateFileName(p, _imageNamePattern));
-                filePaths = SortPaths(filePaths);
+                var filePaths = GetSortedPaths();
 
                 foreach (var filePath in filePaths)
                 {
+                    int curImgNumber = int.Parse(GetImageNumber(filePath));
+                    if (prevImgNumber + 1 != curImgNumber && prevImgNumber != curImgNumber)
+                    {
+                        RenderDocument();
+                        DeleteManagedSequence(section);
+                        _document = new Document();
+                        section = _document.AddSection();
+                        addedPaths.Clear();
+                    }
+
                     if (_startWorkEvent.WaitOne(TimeSpan.Zero))
                         return;
 
-                    if (!TryOpen(filePath, 3))
+                    if (!TryOpen(filePath, 3) || addedPaths.Contains(filePath))
                         continue;
 
                     if (!RotateImageIfValid(filePath))
                     {
                         ExportCorruptedSequence(section, filePath);
+                        _document = new Document();
+                        section = _document.AddSection();
                         continue;
                     }
 
                     var image = section.AddImage(filePath);
                     ConfigureImage(image);
-                    section.AddPageBreak(); 
+                    addedPaths.Add(filePath);
+                    section.AddPageBreak();
+                    prevImgNumber = curImgNumber;
                 }
-                //if (_pdfFileEnd)
-                //{
-                    RenderDocument();
-                    //DeleteManagedSequence(section);
-                    _pdfFileEnd = false;
-                //}
-            } while (WaitHandle.WaitAny(new WaitHandle[] {_stopEvent, _startWorkEvent}, 1000) != 0);
+
+            } while (WaitHandle.WaitAny(new WaitHandle[] {_stopEvent, _startWorkEvent}, Timeout.Infinite) != 0);
+
+            RenderDocument();
+            DeleteManagedSequence(section);
+        }
+
+        private IEnumerable<string> GetSortedPaths()
+        {
+            var filePaths = Directory.EnumerateFiles(_fileMonitorDirectory);
+            filePaths = filePaths.Where(p => ValidateFileName(p, _imageNamePattern));
+            return SortPaths(filePaths);
         }
 
         private IEnumerable<string> SortPaths(IEnumerable<string> paths)
         {
-            Regex pattern = new Regex(@"\d+");
-            var orderedPaths = paths.OrderBy(s => GetImageNumber(s, pattern));
+            var orderedPaths = paths.OrderBy(GetImageNumber);
 
             return orderedPaths;
         }
 
-        private string GetImageNumber(string filePath, Regex pattern)
+        private string GetImageNumber(string filePath)
         {
-            var matches = pattern.Matches(filePath);
+            var matches = _imageNumberPattern.Matches(filePath);
             var lastMatch = matches[matches.Count - 1];
 
             return lastMatch.Value;
@@ -109,15 +130,18 @@ namespace ScanProcessingService
 
         private void ExportCorruptedSequence(Section section, string corruptedFilePath)
         {
-            string fileName = Path.GetFileName(corruptedFilePath);
-            File.Move(corruptedFilePath, Path.Combine(_fileCorruptedDirectory, fileName));
+            MoveCorruptedFile(corruptedFilePath);
             var imagePaths = GetImagePathsFromFile(section);
             foreach (var filePath in imagePaths)
             {
-                fileName = Path.GetFileName(filePath);
-                File.Move(filePath, Path.Combine(_fileCorruptedDirectory, fileName));
+                MoveCorruptedFile(filePath);
             }
-            _document = new Document();
+        }
+
+        private void MoveCorruptedFile(string filePath)
+        {
+            var fileName = Path.GetFileName(filePath);
+            File.Move(filePath, Path.Combine(_fileCorruptedDirectory, fileName));
         }
 
         private void DeleteManagedSequence(Section section)
@@ -127,10 +151,9 @@ namespace ScanProcessingService
             {
                 File.Delete(filePath);
             }
-            _document = new Document();
         }
 
-        public IEnumerable<string> GetImagePathsFromFile(Section section)
+        private IEnumerable<string> GetImagePathsFromFile(Section section)
         {
             return section.Elements.OfType<MigraDoc.DocumentObjectModel.Shapes.Image>().Select(
                 image => image.GetFilePath(_fileMonitorDirectory)).ToList();
@@ -138,14 +161,13 @@ namespace ScanProcessingService
 
         private void ValidateOutputFolder()
         {
-            Regex numberPuttern = new Regex(@"\d+");
             var existingPdfFiles = Directory.EnumerateFiles(_fileOutputDirectory);
             foreach (var filePath in existingPdfFiles)
             {
                 var fileName = Path.GetFileName(filePath);
                 if (ValidateFileName(filePath, _pdfNamePattern))
                 {
-                    var fileNumber = numberPuttern.Match(fileName);
+                    var fileNumber = _imageNumberPattern.Match(fileName);
                     int num;
                     if (int.TryParse(fileNumber.Value, out num) && _pdfFileNumber < num)
                         _pdfFileNumber = num;
@@ -231,7 +253,7 @@ namespace ScanProcessingService
 
         private void WatcherOnCreated(object sender, FileSystemEventArgs e)
         {
-            _stopEvent.Set();
+            _startWorkEvent.Set();
         }
 
         public void Start()
@@ -243,7 +265,7 @@ namespace ScanProcessingService
         public void Stop()
         {
             _watcher.EnableRaisingEvents = false;
-            _startWorkEvent.Set();
+            _stopEvent.Set();
             _workThread.Join();
         }
 
