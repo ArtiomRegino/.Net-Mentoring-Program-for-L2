@@ -4,9 +4,8 @@ using NLog;
 using NLog.Config;
 using NLog.Targets;
 using Topshelf;
-using Topshelf.Logging;
 
-namespace ScanProcessingService
+namespace Message_Queues
 {
     class Program
     {
@@ -23,7 +22,7 @@ namespace ScanProcessingService
                         service.WhenStarted(serv => serv.Start());
                         service.WhenStopped(serv => serv.Stop());
                     }
-                 ).UseNLog(logFactory)
+                ).UseNLog(logFactory)
             );
         }
 
